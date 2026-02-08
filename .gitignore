@@ -1,10 +1,52 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+# --- Security (CRITICAL) ---
+.env
+.env.local
+.env.*
+secrets.json
+credentials.json
 
-# Virtual environments
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Virtual Environments ---
 .venv
+venv/
+ENV/
+env/
+.env_back/
+
+# --- IDE Settings (Optional but recommended) ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Logs & Databases ---
+*.log
+*.sqlite3
+db.sqlite3
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
