@@ -1,7 +1,7 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.types import interrupt
 from src.agents.chat_agents.states.chat_agent_state import ChatAgentState
-from src.services.container import ServiceContainer # <--- Dependency Injection
+from src.services.container import ServiceContainer
 
 def summarize_resume_node(state: ChatAgentState, config):
     print("--- Generating Summary via RAG ---")
@@ -19,7 +19,7 @@ def summarize_resume_node(state: ChatAgentState, config):
         context_text = state.get("resume_text", "")
 
     # 2. Get LLM via Container
-    llm = ServiceContainer.get_llm()
+    llm_provider = ServiceContainer.get_llm()
     
     prompt = ChatPromptTemplate.from_template("""
     You are an expert career assistant. Based ONLY on the following resume context, 
@@ -34,8 +34,15 @@ def summarize_resume_node(state: ChatAgentState, config):
     """)
 
     try:
-        chain = prompt | llm
-        response = chain.invoke({"context": context_text}, config=config)
+        # FIX: We cannot use pipe (|) because llm_provider is a wrapper class.
+        # Instead, we invoke the prompt to get messages, then pass them to the LLM.
+        
+        # 1. Generate formatted messages
+        messages = prompt.invoke({"context": context_text})
+        
+        # 2. Send to LLM
+        response = llm_provider.invoke(messages, config=config)
+        
         summary = response.content
         
         interrupt({
