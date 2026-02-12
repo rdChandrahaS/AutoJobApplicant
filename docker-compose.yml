@@ -2,6 +2,7 @@ version: '3.8'
 services:
   db:
     image: pgvector/pgvector:pg16
+    container_name: autojob_db
     ports:
       - "5432:5432"
     environment:
@@ -10,6 +11,48 @@ services:
       POSTGRES_DB: autojob
     volumes:
       - pgdata:/var/lib/postgresql/data
-
+    networks:
+      - autojob_net
+  mock-portal:
+    build: .
+    container_name: autojob_portal
+    command: uvicorn mock_server:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    networks:
+      - autojob_net
+  backend:
+    build: .
+    container_name: autojob_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/autojob
+      - DB_URI=postgresql://postgres:password@db:5432/autojob
+      - MOCK_PORTAL_URL=http://mock-portal:8001
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY} 
+    depends_on:
+      - db
+      - mock-portal
+    networks:
+      - autojob_net
+  frontend:
+    build: .
+    container_name: autojob_frontend
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - DB_URI=postgresql://postgres:password@db:5432/autojob
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    depends_on:
+      - backend
+    networks:
+      - autojob_net
 volumes:
   pgdata:
+networks:
+  autojob_net:
+    driver: bridge

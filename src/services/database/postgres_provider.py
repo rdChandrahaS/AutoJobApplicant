@@ -14,13 +14,22 @@ class PostgresDatabase(DatabaseProvider):
         self._init_tables()
 
     def _get_connection(self):
+        # Returns a sync connection
         return psycopg.connect(self.uri, autocommit=True)
 
     def _init_tables(self):
         with self._get_connection() as conn:
+            # Create LangChain history table
             PostgresChatMessageHistory.create_tables(conn, self.table_name)
+            # Create custom sessions table
             with conn.cursor() as cur:
-                cur.execute(f"CREATE TABLE IF NOT EXISTS {self.sessions_table} (session_id TEXT PRIMARY KEY, title TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);")
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {self.sessions_table} (
+                        session_id TEXT PRIMARY KEY, 
+                        title TEXT, 
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
 
     def add_user_message(self, session_id: str, message: str):
         history = self.get_history(session_id)
@@ -31,12 +40,21 @@ class PostgresDatabase(DatabaseProvider):
         history.add_ai_message(message)
 
     def get_history(self, session_id: str):
-        return PostgresChatMessageHistory(self.table_name, str(session_id), sync_connection=self._get_connection())
+        # Note: sync_connection must remain open for the history object to work.
+        # In a high-load production app, consider using a connection pool.
+        return PostgresChatMessageHistory(
+            self.table_name, 
+            str(session_id), 
+            sync_connection=self._get_connection()
+        )
 
     def save_session_title(self, session_id: str, title: str):
         with self._get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(f"INSERT INTO {self.sessions_table} (session_id, title) VALUES (%s, %s) ON CONFLICT (session_id) DO NOTHING;", (str(session_id), title))
+                cur.execute(
+                    f"INSERT INTO {self.sessions_table} (session_id, title) VALUES (%s, %s) ON CONFLICT (session_id) DO NOTHING;", 
+                    (str(session_id), title)
+                )
 
     def get_all_sessions(self):
         with self._get_connection() as conn:

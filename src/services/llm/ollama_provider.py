@@ -1,22 +1,15 @@
-import os
 from src.services.interfaces.LLMProvider import LLMProvider
-from langchain_google_genai import ChatGoogleGenerativeAI
-from dotenv import load_dotenv
+from langchain_ollama import ChatOllama
 
-load_dotenv()
-
-class GeminiLLM(LLMProvider):
-    # FIX: Updated to 'gemini-2.0-flash' which is verified in your checkModels output
-    def __init__(self, model_name: str = "gemini-2.0-flash"): 
+class OllamaLLM(LLMProvider):
+    def __init__(self, model_name: str = "llama3.2"):
         self.model_name = model_name
-        self.api_key = os.getenv("GOOGLE_API_KEY")
-        if not self.api_key: raise ValueError("Missing GOOGLE_API_KEY")
 
     def _get_client(self, streaming: bool = False):
-        return ChatGoogleGenerativeAI(
+        return ChatOllama(
             model=self.model_name,
-            google_api_key=self.api_key,
-            streaming=streaming
+            streaming=streaming,
+            temperature=0
         )
 
     def generate(self, messages, streaming=False, config=None):

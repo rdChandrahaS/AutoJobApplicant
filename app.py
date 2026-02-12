@@ -19,7 +19,6 @@ def extract_clean_content(msg):
     if isinstance(content, str):
         return content
     elif isinstance(content, list):
-        # Join text parts
         return "".join([c.get("text", "") for c in content if isinstance(c, dict) and "text" in c])
     return str(content)
 
@@ -97,9 +96,11 @@ with st.sidebar:
             ingest_resume_text(text)
             st.success("Resume Analyzed!")
 
+# Load History
 history = db.get_history(st.session_state.current_session_id)
 current_messages = history.messages
 
+# Sync DB history to Session State on load (prevents losing history on refresh)
 if not st.session_state.get("is_new_chat", False):
     st.session_state.messages = current_messages
 elif "messages" not in st.session_state:
@@ -113,10 +114,10 @@ if not st.session_state.is_new_chat and sessions:
             break
 st.header(f"💬 {display_title}")
 
+# Display Chat
 for msg in st.session_state.messages:
     role = "user" if msg.type == "human" else "assistant"
     with st.chat_message(role):
-        # FIX: Ensure displayed history is clean
         st.write(extract_clean_content(msg))
 
 if user_input := st.chat_input("Type here..."):
@@ -124,8 +125,10 @@ if user_input := st.chat_input("Type here..."):
         db.save_session_title(st.session_state.current_session_id, user_input)
         st.session_state.is_new_chat = False
 
+    # Add to DB and Local State immediately
     history.add_user_message(user_input)
     st.session_state.messages.append(HumanMessage(content=user_input))
+    
     with st.chat_message("user"):
         st.write(user_input)
 
@@ -176,8 +179,8 @@ if user_input := st.chat_input("Type here..."):
             for node_name, node_output in event.items():
                 if isinstance(node_output, dict) and "messages" in node_output:
                     msg = node_output["messages"][0]
-                    # FIX: Clean the content before saving
                     clean_text = extract_clean_content(msg)
+                    # Only add to DB here. The StreamHandler has already displayed it.
                     history.add_ai_message(clean_text)
                 elif isinstance(node_output, dict) and "summary" in node_output:
                      msg = node_output["summary"]

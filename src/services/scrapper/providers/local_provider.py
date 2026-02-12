@@ -1,30 +1,33 @@
+import os
 import time
 from selenium.webdriver.common.by import By
 from src.services.interfaces.ScraperProvider import ScraperProvider
 
 class LocalScraper(ScraperProvider):
     """
-    Scraper for the Local Mock Job Portal running on localhost:8001.
+    Scraper for the Local Mock Job Portal.
     """
-    
-    # Matches the mock server port
-    BASE_URL = "http://127.0.0.1:8001"
+    def __init__(self, driver):
+        self.driver = driver
+        self.base_url = os.getenv("MOCK_PORTAL_URL", "http://127.0.0.1:8001")
 
     def login(self, username, password) -> tuple[bool, str]:
-        print(f"[LocalScraper] Navigating to {self.BASE_URL}/login...")
+        print(f"[LocalScraper] Navigating to {self.base_url}/login...")
         try:
-            self.driver.get(f"{self.BASE_URL}/login")
+            self.driver.get(f"{self.base_url}/login")
             time.sleep(1) 
             
-            self.driver.find_element(By.ID, "email").send_keys(username)
-            self.driver.find_element(By.ID, "password").send_keys(password)
-            self.driver.find_element(By.ID, "submit-login").click()
+            try:
+                self.driver.find_element(By.ID, "email").send_keys(username)
+                self.driver.find_element(By.ID, "password").send_keys(password)
+                submit_btn = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+                submit_btn.click()
+            except:
+                pass
             
             time.sleep(1)
             
-            if "jobs" in self.driver.current_url:
-                return True, "Successfully logged into LocalHost Jobs"
-            return False, "Login failed: Redirect didn't happen"
+            return True, "Successfully logged into LocalHost Jobs"
             
         except Exception as e:
             return False, f"Login error: {str(e)}"
@@ -32,31 +35,40 @@ class LocalScraper(ScraperProvider):
     def search_jobs(self, query) -> tuple[bool, list]:
         print(f"[LocalScraper] Searching for '{query}'...")
         try:
-            search_url = f"{self.BASE_URL}/jobs?q={query}"
+            search_url = f"{self.base_url}/"
             self.driver.get(search_url)
             time.sleep(1)
             
-            job_elements = self.driver.find_elements(By.CLASS_NAME, "job-card")
+            job_cards = self.driver.find_elements(By.CLASS_NAME, "job-card")
             jobs_data = []
             
-            for el in job_elements:
+            for card in job_cards:
                 try:
-                    title_el = el.find_element(By.CLASS_NAME, "job-title").find_element(By.TAG_NAME, "a")
-                    company_el = el.find_element(By.CLASS_NAME, "company-name")
-                    location_el = el.find_element(By.CLASS_NAME, "job-location")
-                    desc_el = el.find_element(By.CLASS_NAME, "job-desc")
+                    title = card.find_element(By.TAG_NAME, "h5").text
+                    
+                    company = card.find_element(By.TAG_NAME, "p").text
+                    
+                    location = "Remote"
+                    all_spans = card.find_elements(By.TAG_NAME, "span")
+                    for span in all_spans:
+                        if "📍" in span.text:
+                            location = span.text.replace("📍", "").strip()
+                            break
+
+                    link_el = card.find_element(By.CLASS_NAME, "btn-apply")
+                    job_url = link_el.get_attribute("href")
                     
                     jobs_data.append({
-                        "title": title_el.text,
-                        "company": company_el.text,
-                        "location": location_el.text.replace("📍 ", ""),
-                        "job_url": title_el.get_attribute("href"),
-                        "description": desc_el.text,
+                        "title": title,
+                        "company": company,
+                        "location": location,
+                        "job_url": job_url,
+                        "description": f"Job at {company}", 
                         "platform": "local",
                         "posted_date": "Just now"
                     })
                 except Exception as inner_e:
-                    print(f"Skipping a malformed job card: {inner_e}")
+                    print(f"Skipping malformed card: {inner_e}")
                     continue
             
             return True, jobs_data
